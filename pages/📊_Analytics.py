@@ -476,15 +476,6 @@ def show_expense_analytics(df, start_date, end_date):
             })
         )
     
-    # Expense Growth Analysis
-    st.subheader("📈 Expense Growth Analysis")
-    monthly_total = df[df['Type'] == 'Expense'].groupby(df['Date'].dt.strftime('%Y-%m'))['Amount'].sum()
-    monthly_growth = monthly_total.pct_change() * 100
-    
-    fig_growth = px.line(monthly_growth,
-                        title='Month-over-Month Expense Growth Rate',
-                        labels={'value': 'Growth Rate (%)', 'index': 'Month'})
-    st.plotly_chart(fig_growth)
 
 def show_pending_transactions():
     """Display pending transactions section"""
