@@ -130,7 +130,7 @@ with st.sidebar:
     st.divider()
 
     # Retrain button
-    if st.button("🔄 Retrain Model", use_container_width=True, type="primary"):
+    if st.button("🔄 Retrain Model", width="stretch", type="primary"):
         with st.spinner("📊 Loading fresh data from Google Sheets..."):
             # Get fresh data
             expenses_df = get_expense_data(use_mock=use_mock_data)
@@ -169,7 +169,7 @@ with st.sidebar:
                         st.error("❌ Training failed")
 
     # Clear model button
-    if st.button("🗑️ Clear Model", use_container_width=True):
+    if st.button("🗑️ Clear Model", width="stretch"):
         st.session_state.ml_predictor = ExpenseMLPredictor()
         st.session_state.ml_trained = False
         if 'prediction' in st.session_state:
@@ -196,7 +196,7 @@ with tab1:
         col1, col2 = st.columns([2, 1])
 
         with col1:
-            if st.button("📥 Load Data from Google Sheets", use_container_width=True, type="primary"):
+            if st.button("📥 Load Data from Google Sheets", width="stretch", type="primary"):
                 with st.spinner("🔄 Fetching data..."):
                     expenses_df = get_expense_data(use_mock=use_mock_data)
 
@@ -247,7 +247,7 @@ with tab1:
         else:
             st.success(validation_msg)
 
-            if st.button("🤖 Train ML Model & Generate Predictions", type="primary", use_container_width=True):
+            if st.button("🤖 Train ML Model & Generate Predictions", type="primary", width="stretch"):
                 with st.spinner("🔬 Training machine learning model..."):
                     success = st.session_state.ml_predictor.train_model(expenses_df)
 
@@ -317,7 +317,7 @@ with tab1:
         # Chart
         st.subheader("📊 Interactive Forecast Visualization")
         fig = st.session_state.ml_predictor.create_forecast_chart(expenses_df, pred)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         st.divider()
 
@@ -410,7 +410,7 @@ with tab2:
             col1, col2 = st.columns([2, 1])
 
             with col1:
-                if st.button("🔮 Predict Category Spending", use_container_width=True, type="primary"):
+                if st.button("🔮 Predict Category Spending", width="stretch", type="primary"):
                     with st.spinner(f"Analyzing {selected_category}..."):
                         result = st.session_state.ml_predictor.get_category_forecast(
                             expenses_df,
@@ -454,7 +454,7 @@ with tab2:
                                 ]
                             })
 
-                            st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+                            st.dataframe(comparison_df, width="stretch", hide_index=True)
 
                             # --- MODIFICATION START ---
                             # Show forecast chart instead of simple historical trend
@@ -467,7 +467,7 @@ with tab2:
                                 historical_df=result['historical_df'],
                                 forecast_df=result['forecast_df']
                             )
-                            st.plotly_chart(category_fig, use_container_width=True)
+                            st.plotly_chart(category_fig, width="stretch")
                             # --- MODIFICATION END ---
 
                         else:
@@ -500,7 +500,7 @@ with tab2:
             category_summary['Total Spent'] = category_summary['Total Spent'].apply(lambda x: f"₹{x:,.2f}")
             category_summary['Average'] = category_summary['Average'].apply(lambda x: f"₹{x:,.2f}")
 
-            st.dataframe(category_summary, use_container_width=True)
+            st.dataframe(category_summary, width="stretch")
         else:
             st.warning("⚠️ No category information available in data")
     else:

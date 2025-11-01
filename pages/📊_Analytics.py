@@ -273,7 +273,7 @@ def show_overview_analytics(df, start_date, end_date):
             'Expense': 'Rs. {:,.2f}',
             'Net': 'Rs. {:,.2f}'
         }),
-        use_container_width=True,
+        width="stretch",
         height=200
     )
     
@@ -373,7 +373,7 @@ def show_income_analytics(df, start_date, end_date):
             top_sources.to_frame().style.format({
                 'Amount': 'Rs. {:,.2f}'
             }),
-            use_container_width=True,
+            width="stretch",
             height=300
         )
     
@@ -461,7 +461,7 @@ def show_emotion_analytics(df, start_date, end_date):
             color_discrete_map=emotion_colors
         )
         fig_emotion_pie.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig_emotion_pie, use_container_width=True)
+        st.plotly_chart(fig_emotion_pie, width="stretch")
     
     with col2:
         st.write("### Summary")
@@ -492,7 +492,7 @@ def show_emotion_analytics(df, start_date, end_date):
         color_discrete_map=emotion_colors,
         barmode='stack'
     )
-    st.plotly_chart(fig_monthly_emotion, use_container_width=True)
+    st.plotly_chart(fig_monthly_emotion, width="stretch")
     
     st.divider()
     
@@ -512,7 +512,7 @@ def show_emotion_analytics(df, start_date, end_date):
         barmode='group'
     )
     fig_category_emotion.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig_category_emotion, use_container_width=True)
+    st.plotly_chart(fig_category_emotion, width="stretch")
     
     st.divider()
     
@@ -574,7 +574,7 @@ def show_emotion_analytics(df, start_date, end_date):
             'Average Transaction': 'Rs. {:,.2f}',
             'Number of Transactions': '{:.0f}'
         }),
-        use_container_width=True
+        width="stretch"
     )
     
     # Recent emotional transactions
@@ -586,7 +586,7 @@ def show_emotion_analytics(df, start_date, end_date):
             'Date': lambda x: x.strftime('%Y-%m-%d')
         }),
         hide_index=True,
-        use_container_width=True
+        width="stretch"
     )
 
     
@@ -628,7 +628,7 @@ def show_expense_analytics(df, start_date, end_date):
             top_expenses.to_frame().style.format({
                 'Amount': 'Rs. {:,.2f}'
             }),
-            use_container_width=True,
+            width="stretch",
             height=300
         )
     
@@ -730,7 +730,7 @@ def show_pending_transactions():
                 to_receive['Due Date'] = to_receive['Due Date'].dt.strftime('%Y-%m-%d')
                 st.dataframe(
                     to_receive[['Date', 'Amount', 'Category', 'Description', 'Due Date']],
-                    use_container_width=True
+                    width="stretch"
                 )
         
         with tab2:
@@ -745,7 +745,7 @@ def show_pending_transactions():
                 to_pay['Due Date'] = to_pay['Due Date'].dt.strftime('%Y-%m-%d')
                 st.dataframe(
                     to_pay[['Date', 'Amount', 'Category', 'Description', 'Due Date']],
-                    use_container_width=True
+                    width="stretch"
                 )
     except Exception as e:
         log.error(f"Error displaying pending transactions: {str(e)}")
@@ -758,7 +758,7 @@ def show_analytics():
         # Add regenerate button in the header
         col1, col2 = st.columns([6, 1])
         with col2:
-            if st.button("🔄 Refresh", use_container_width=True):
+            if st.button("🔄 Refresh", width="stretch"):
                 get_transactions_data.clear()
                 get_pending_transactions.clear()
                 st.rerun()

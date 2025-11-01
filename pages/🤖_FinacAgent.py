@@ -826,7 +826,7 @@ with st.sidebar:
     
     st.divider()
         
-    if st.button("🔄 Clear Chat", use_container_width=True):
+    if st.button("🔄 Clear Chat", width="stretch"):
         st.session_state.chat_history = []
         st.success("Chat cleared!")
         st.rerun()
@@ -861,7 +861,7 @@ with tab1:
             if "charts" in message and message["charts"]:
                 for chart in message["charts"]:
                     if chart:
-                        st.plotly_chart(chart, use_container_width=True)
+                        st.plotly_chart(chart, width="stretch")
 
             if "news" in message and message["news"]:
                 for ticker, articles in message["news"].items():
@@ -920,7 +920,7 @@ with tab2:
             new_ticker = st.text_input("Stock Ticker", placeholder="e.g., AAPL, RELIANCE.NS")
             new_amount = st.number_input("Invested Amount (₹)", min_value=0.0, step=1000.0, format="%.2f")
             new_date = st.date_input("Purchase Date")
-            submitted = st.form_submit_button("➕ Add Stock", use_container_width=True)
+            submitted = st.form_submit_button("➕ Add Stock", width="stretch")
             
             if submitted:
                 if new_ticker and new_amount > 0:
