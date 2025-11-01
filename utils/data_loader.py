@@ -20,15 +20,32 @@ load_dotenv()
 def get_google_sheets_service():
     """Cache Google Sheets credentials and service"""
     try:
-        creds = service_account.Credentials.from_service_account_file(
-            os.getenv('GOOGLE_SHEETS_CREDENTIALS'),
-            scopes=['https://www.googleapis.com/auth/spreadsheets']
-        )
-        service = build('sheets', 'v4', credentials=creds)
+        # Try Streamlit secrets first (for Streamlit Cloud)
+        if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
+            creds = service_account.Credentials.from_service_account_info(
+                st.secrets['gcp_service_account'],
+                scopes=['https://www.googleapis.com/auth/spreadsheets']
+            )
+        else:
+            # Local development - use file path from .env
+            creds_path = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
+            if not creds_path:
+                raise ValueError("GOOGLE_SHEETS_CREDENTIALS not set")
+            if not os.path.exists(creds_path):
+                raise FileNotFoundError(f"Credentials file not found: {creds_path}")
+            
+            creds = service_account.Credentials.from_service_account_file(
+                creds_path,
+                scopes=['https://www.googleapis.com/auth/spreadsheets']
+            )
+        
+        service: Any = build('sheets', 'v4', credentials=creds)
         return service
+
     except Exception as e:
-        log.error(f"❌ Failed to connect to Google Sheets: {str(e)}")
-        raise
+        logging.exception("Error creating Google Sheets service")
+        st.error(f"Failed to create Google Sheets service: {str(e)}")
+        raise e
 
 def get_expense_data_from_sheets():
     """
