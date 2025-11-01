@@ -2,14 +2,31 @@ TRANSACTION_TYPES = ['Income', 'Expense', 'To Receive', 'To Pay']
 
 CATEGORIES = {
     'Expense': {
-        'Food': ['Groceries', 'Dining Out', 'Snacks'],
-        'Transportation': ['Fuel', 'Public Transit', 'Maintenance'],
-        'Housing': ['Rent', 'Utilities', 'Maintenance'],
-        'Entertainment': ['Movies', 'Games', 'Events'],
-        'Shopping': ['Clothes', 'Electronics', 'Home Items'],
-        'Healthcare': ['Medical', 'Pharmacy', 'Insurance'],
-        'Gift': ['Birthday', 'Wedding', 'Holiday', 'Other'],
-        'Other': ['Miscellaneous', 'Unspecified']
+        'Food': [
+            'Groceries', 'Dining Out', 'Snacks', 'Vegetables',
+            'Fruits', 'Beverages', 'Daily Essentials', 'Supermarket'
+        ],
+        'Transportation': [
+            'Fuel', 'Public Transit', 'Taxi', 'Bike Maintenance', 'Car Maintenance'
+        ],
+        'Housing': [
+            'Rent', 'Utilities', 'Maintenance', 'Repairs', 'Internet', 'Water Bill'
+        ],
+        'Entertainment': [
+            'Movies', 'Games', 'Events', 'Streaming', 'Concerts', 'Subscriptions'
+        ],
+        'Shopping': [
+            'Clothes', 'Electronics', 'Home Items', 'Accessories', 'Decor', 'Appliances'
+        ],
+        'Healthcare': [
+            'Medical', 'Pharmacy', 'Insurance', 'Doctor Visit', 'Hospital', 'Medicines'
+        ],
+        'Gift': [
+            'Birthday', 'Wedding', 'Holiday', 'Festive', 'Donation', 'Other'
+        ],
+        'Other': [
+            'Miscellaneous', 'Unspecified', 'Unknown'
+        ]
     },
     'Income': {
         'Salary': ['Regular', 'Bonus', 'Overtime'],
@@ -20,7 +37,6 @@ CATEGORIES = {
         'Pending Income': ['Salary', 'Investment', 'Other']
     },
     'To Pay': {
-        'Bills': ['Utilities', 'Rent', 'Other'],
-        'Debt': ['Credit Card', 'Loan', 'Other']
+        'Bills': ['Utilities', 'Rent', 'Credit Card', 'Loan', 'Other']
     }
 }

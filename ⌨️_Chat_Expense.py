@@ -237,70 +237,71 @@ def test_sheet_access() -> bool:
         log.error(f"❌ Sheet access test failed: {str(e)}")
         return False
 
-def initialize_sheet() -> None:
-    try:
-        sheet_metadata: Any = service.spreadsheets().get(spreadsheetId=SHEET_ID).execute()
-        sheets: list[Any] = sheet_metadata.get('sheets', '')
-        existing_sheets: set[Any] = {s.get("properties", {}).get("title") for s in sheets}
+# def initialize_sheet() -> None:
+#     try:
+#         sheet_metadata: Any = service.spreadsheets().get(spreadsheetId=SHEET_ID).execute()
+#         sheets: list[Any] = sheet_metadata.get('sheets', '')
+#         existing_sheets: set[Any] = {s.get("properties", {}).get("title") for s in sheets}
 
-        if 'Expenses' not in existing_sheets:
-            log.info("Creating new Expenses sheet...")
-            body: dict[str, Any] = {
-                'requests': [{
-                    'addSheet': {
-                        'properties': {
-                            'title': 'Expenses'
-                        }
-                    }
-                }]
-            }
-            service.spreadsheets().batchUpdate(
-                spreadsheetId=SHEET_ID,
-                body=body
-            ).execute()
+#         if 'Expenses' not in existing_sheets:
+#             log.info("Creating new Expenses sheet...")
+#             body: dict[str, Any] = {
+#                 'requests': [{
+#                     'addSheet': {
+#                         'properties': {
+#                             'title': 'Expenses'
+#                         }
+#                     }
+#                 }]
+#             }
+#             service.spreadsheets().batchUpdate(
+#                 spreadsheetId=SHEET_ID,
+#                 body=body
+#             ).execute()
 
-            headers: list[list[str]] = [['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description']]
-            service.spreadsheets().values().update(
-                spreadsheetId=SHEET_ID,
-                range='Expenses!A1:F1',
-                valueInputOption='RAW',
-                body={'values': headers}
-            ).execute()
+#             # Added 'emotion_state' to the headers
+#             headers: list[list[str]] = [['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description', 'emotion_state']]
+#             service.spreadsheets().values().update(
+#                 spreadsheetId=SHEET_ID,
+#                 range='Expenses!A1:G1', # Range extended to column G
+#                 valueInputOption='RAW',
+#                 body={'values': headers}
+#             ).execute()
 
-        if 'Pending' not in existing_sheets:
-            log.info("Creating new Pending sheet...")
-            body: dict[str, Any] = {
-                'requests': [{
-                    'addSheet': {
-                        'properties': {
-                            'title': 'Pending'
-                        }
-                    }
-                }]
-            }
-            service.spreadsheets().batchUpdate(
-                spreadsheetId=SHEET_ID,
-                body=body
-            ).execute()
+#         if 'Pending' not in existing_sheets:
+#             log.info("Creating new Pending sheet...")
+#             body: dict[str, Any] = {
+#                 'requests': [{
+#                     'addSheet': {
+#                         'properties': {
+#                             'title': 'Pending'
+#                         }
+#                     }
+#                 }]
+#             }
+#             service.spreadsheets().batchUpdate(
+#                 spreadsheetId=SHEET_ID,
+#                 body=body
+#             ).execute()
 
-            headers: list[list[str]] = [['Date', 'Amount', 'Type', 'Category', 'Description', 'Due Date', 'Status']]
-            service.spreadsheets().values().update(
-                spreadsheetId=SHEET_ID,
-                range='Pending!A1:G1',
-                valueInputOption='RAW',
-                body={'values': headers}
-            ).execute()
+#             headers: list[list[str]] = [['Date', 'Amount', 'Type', 'Category', 'Description', 'Due Date', 'Status']]
+#             service.spreadsheets().values().update(
+#                 spreadsheetId=SHEET_ID,
+#                 range='Pending!A1:G1',
+#                 valueInputOption='RAW',
+#                 body={'values': headers}
+#             ).execute()
 
-        if not test_sheet_access():
-            raise Exception("Failed to verify sheet access")
+#         if not test_sheet_access():
+#             raise Exception("Failed to verify sheet access")
 
-        log.info("✨ Sheets initialized and verified")
-    except Exception as e:
-        log.error(f"❌ Failed to initialize sheets: {str(e)}")
-        raise
+#         log.info("✨ Sheets initialized and verified")
+#     except Exception as e:
+#         log.error(f"❌ Failed to initialize sheets: {str(e)}")
+#         raise
 
 def add_transaction_to_sheet(date: str, amount: float, trans_type: str,
-                           category: str, subcategory: str, description: str) -> bool:
+                           category: str, subcategory: str, description: str, emotion_state: str = "Neutral") -> bool:
     """
     Add a new transaction to Google Sheet.
 
@@ -311,16 +312,18 @@ def add_transaction_to_sheet(date: str, amount: float, trans_type: str,
         category (str): Transaction category
         subcategory (str): Transaction subcategory
         description (str): Transaction description
+        emotion_state (str): The emotional category of the spending
 
     Returns:
         bool: True if transaction added successfully, False otherwise
     """
     try:
-        log.info(f"Starting transaction save: {date}, {amount}, {trans_type}, {category}, {subcategory}, {description}")
+        log.info(f"Starting transaction save: {date}, {amount}, {trans_type}, {category}, {subcategory}, {description}, {emotion_state}")
 
         date_str:Any = date
         amount_str: str = str(float(amount))
-        values: list[list[str]] = [[str(date_str), amount_str, trans_type, category, subcategory, description]]
+        # Added emotion_state to the values list
+        values: list[list[str]] = [[str(date_str), amount_str, trans_type, category, subcategory, description, emotion_state]]
 
         result: Any = service.spreadsheets().values().append(
             spreadsheetId=SHEET_ID,
@@ -338,6 +341,7 @@ def add_transaction_to_sheet(date: str, amount: float, trans_type: str,
         return False
 
 @st.cache_data(ttl=300)
+@st.cache_data(ttl=300)
 def get_transactions_data() -> pd.DataFrame:
     """
     Fetch and process all transactions from Google Sheet.
@@ -349,16 +353,23 @@ def get_transactions_data() -> pd.DataFrame:
         log.debug("Fetching transactions data from Google Sheets")
         result: Any = service.spreadsheets().values().get(
             spreadsheetId=SHEET_ID,
-            range='Expenses!A1:F'
+            range='Expenses!A1:G' # Range extended to column G
         ).execute()
 
         values: list[list[str]] = result.get('values', [])
-        if not values:
+        columns = ['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description', 'emotion_state']
+        if not values or len(values) < 1:
             log.warning("No transaction data found in sheet")
-            return pd.DataFrame(columns=['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description'])
+            return pd.DataFrame(columns=columns)
+
+        # Pad rows that are shorter than the number of columns to prevent errors
+        num_columns = len(columns)
+        padded_values = []
+        for row in values[1:]:
+            padded_values.append(row + [''] * (num_columns - len(row)))
 
         log.info(f"📈 Retrieved {len(values)-1} transaction records")
-        return pd.DataFrame(values[1:], columns=['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description'])
+        return pd.DataFrame(padded_values, columns=columns)
     except Exception as e:
         log.error(f"❌ Failed to fetch transactions data: {str(e)}")
         raise
@@ -387,7 +398,7 @@ def validate_amount(amount_str: str) -> float:
 
 def extract_transaction_info_conversational(user_message: str, conversation_history: list[dict[str, str]], pending_data: dict[str, Any]) -> dict[str, Any]:
     """
-    Use conversational AI to extract transaction information, asking for missing details.
+    Use conversational AI to extract transaction information, asking for missing details and probing for emotional state.
     Returns a dict with 'status', 'message', 'data', and 'complete' flag.
     """
     try:
@@ -404,76 +415,67 @@ def extract_transaction_info_conversational(user_message: str, conversation_hist
 
         chat = model.start_chat(history=gemini_history)
 
+       # Format categories and history for the prompt
+        expense_categories_str = ", ".join(CATEGORIES.get('Expense', {}).keys())
+        income_categories_str = ", ".join(CATEGORIES.get('Income', {}).keys())
+        
+        # Correctly format the conversation history for the AI to understand context
+        history_log = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history[:-1]]) # All but the latest message
+
         prompt = f"""
-You are a friendly financial assistant helping users log their transactions. Your goal is to extract ALL required information through natural conversation.
+You are a highly specialized financial assistant AI. Your SOLE purpose is to extract transaction details from a user's conversation and format them into a strict JSON object. You must follow the rules below without deviation.
 
-Current conversation context:
-User said: "{user_message}"
+### Core Rules
+1.  **Strict JSON Output:** You MUST ONLY respond with a valid JSON object. Do not include any other text.
+2.  **Use Provided Categories:** You are strictly limited to the categories provided. Do NOT invent new ones.
+    - **Valid Expense Categories:** `{expense_categories_str}`
+    - **Valid Income Categories:** `{income_categories_str}`
+3.  **Rigid Two-Step Process for Expenses:**
+    - **Step 1:** First, collect all basic information (`Amount`, `Category`, `Description`, `Date`).
+    - **Step 2:** ONLY after all basic info is collected for an EXPENSE, ask exactly ONE emotion-probing question.
+4.  **Default to "Other":** If the user's category is ambiguous, you MUST classify it as the most logical parent category (e.g., "Shopping") or default to "Other".
 
-Information collected so far:
-{pending_data if pending_data else "None yet"}
+### Logic Flow
+Analyze the **Current User Message** by using the **Full Conversation History** as context. Your goal is to fill the fields in `extracted_data`. If a field is missing, ask a question to get it. When all fields are present, set `"status": "complete"`.
 
-REQUIRED INFORMATION FOR EACH TRANSACTION TYPE:
+### Emotion Categories
+- Coping / Stress Spending
+- Routine / Neutral Spending
+- Impulse / Boredom Spending
+- Social Comparison Spending
+- Aspirational / Identity Spending
 
-1. **EXPENSE (regular spending)**:
-   - Amount (required)
-   - Category: Food, Transportation, Housing, Entertainment, Shopping, Healthcare, Gift, Other
-   - Description (what was purchased/spent on)
-   - Date (default to today if not mentioned)
-
-2. **INCOME (money received)**:
-   - Amount (required)
-   - Category: Salary, Investment, Other
-   - Description (source of income)
-   - Date (default to today if not mentioned)
-
-3. **TO RECEIVE (pending income)**:
-   - Amount (required)
-   - Description (what you're expecting to receive)
-   - Due date (when you expect to receive it)
-
-4. **TO PAY (pending payment)**:
-   - Amount (required)
-   - Category: Bills, Debt
-   - Description (what needs to be paid)
-   - Due date (when payment is due)
-
-5. **RECEIVED PENDING (collecting pending money)**:
-   - Amount (required)
-   - This is auto-processed, just confirm the amount
-
-INSTRUCTIONS:
-1. Analyze the user's message and determine transaction type
-2. Extract any information provided (amount, category, description, date)
-3. Check what information is still missing
-4. If information is missing, ask for it in a friendly, conversational way
-5. If all required information is present, confirm and prepare for saving
-
-RESPONSE FORMAT (JSON):
+**JSON RESPONSE FORMAT:**
+```json
 {{
-  "status": "complete" or "incomplete" or "error",
+  "status": "complete" or "incomplete",
   "transaction_type": "EXPENSE_NORMAL/INCOME_NORMAL/PENDING_TO_RECEIVE/PENDING_TO_PAY/PENDING_RECEIVED",
   "extracted_data": {{
     "amount": "number or null",
     "category": "category or null",
     "description": "text or null",
     "date": "YYYY-MM-DD or null",
-    "due_date": "YYYY-MM-DD or null (for pending transactions)"
+    "due_date": "YYYY-MM-DD or null",
+    "emotion_state": "classified emotion or null"
   }},
   "missing_fields": ["list of missing required fields"],
-  "assistant_message": "Your friendly response to the user"
+  "assistant_message": "Your friendly response to the user. This is where you will ask your probing questions."
 }}
 
-IMPORTANT RULES:
-- Be conversational and friendly
-- If amount is missing, ask: "How much was it?" or "What's the amount?"
-- If category is unclear, suggest options: "Was this for Food, Transportation, or something else?"
-- For dates, accept natural language: "yesterday", "last Monday", "next week"
-- If user says "received pending", check for matching pending transactions
-- Always validate that amounts are positive numbers
-- EMIs and loans should be categorized as "To Pay" with category "Debt"
+---
+### ANALYSIS TASK
 
-Now analyze the user's message and respond:
+**Full Conversation History (for context):**
+{history_log if history_log else "No previous conversation."}
+
+**Current User Message (process this now):**
+user: "{user_message}"
+
+**Information Collected So Far:**
+{pending_data if pending_data else "None"}
+
+**Your Task:**
+Based on the history and the current message, generate the next required JSON response.
 """
 
         log.debug("🤖 Sending conversational prompt to Gemini")
@@ -504,16 +506,17 @@ Now analyze the user's message and respond:
             }
 
         log.info(f"📋 Extraction status: {result.get('status')}")
+
         return result
 
     except Exception as e:
-        log.error(f"❌ Failed conversational extraction: {str(e)}")
-        return {
-            "status": "error",
-            "assistant_message": "I'm having trouble understanding. Could you please rephrase your transaction? For example: 'Spent 500 on groceries' or 'Received salary of 50000'",
-            "extracted_data": {},
-            "missing_fields": []
-        }
+            log.error(f"❌ Failed conversational extraction: {str(e)}")
+            return {
+                "status": "error",
+                "assistant_message": "I'm having trouble understanding. Could you please rephrase your transaction? For example: 'Spent 500 on groceries' or 'Received salary of 50000'",
+                "extracted_data": {},
+                "missing_fields": []
+            }
 
 def handle_received_pending_transaction(amount: float, description: str) -> tuple[bool, dict[str, Any] | None]:
     """
@@ -702,7 +705,8 @@ def process_user_input_conversational(user_message: str) -> dict[str, Any]:
                 'amount': extracted['amount'],
                 'category': extracted.get('category', 'Other'),
                 'description': extracted.get('description', ''),
-                'date': transaction_date
+                'date': transaction_date,
+                'emotion_state': extracted.get('emotion_state', 'Neutral')
             }
 
             if 'To Receive' in transaction_data['type'] or 'To Pay' in transaction_data['type']:
@@ -720,7 +724,10 @@ def process_user_input_conversational(user_message: str) -> dict[str, Any]:
 
         elif result['status'] == 'incomplete':
             if result.get('extracted_data'):
-                pending_data.update(result['extracted_data'])
+                # Merge new data with pending data
+                for key, value in result['extracted_data'].items():
+                    if value is not None:
+                         pending_data[key] = value
                 st.session_state.pending_transaction_data = pending_data
 
             return {
@@ -828,29 +835,53 @@ def get_subcategories(trans_type: str, category: str) -> list[str]:
 def on_save_click():
     st.session_state.save_clicked = True
 
-def verify_sheet_setup() -> bool:
+# <-- FIX: This function is now the single source of truth for creating AND fixing sheets.
+def verify_sheets_setup():
+    """
+    Verify and correct both Expenses and Pending sheets, including headers.
+    This robust function creates sheets if they don't exist and fixes headers if they are incorrect.
+    """
     try:
-        result = service.spreadsheets().values().get(
-            spreadsheetId=SHEET_ID,
-            range='Expenses!A1:F1'
-        ).execute()
+        log.info("Verifying Google Sheets setup...")
+        sheet_metadata = service.spreadsheets().get(spreadsheetId=SHEET_ID).execute()
+        sheets = sheet_metadata.get('sheets', [])
+        existing_sheets = {s.get("properties", {}).get("title") for s in sheets}
 
-        values = result.get('values', [])
-        expected_headers = ['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description']
+        # Define the CORRECT headers
+        expected_exp_headers = ['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description', 'emotion_state']
+        expected_pend_headers = ['Date', 'Amount', 'Type', 'Category', 'Description', 'Due Date', 'Status']
 
-        if not values or values[0] != expected_headers:
-            headers = [expected_headers]
-            service.spreadsheets().values().update(
-                spreadsheetId=SHEET_ID,
-                range='Expenses!A1:F1',
-                valueInputOption='RAW',
-                body={'values': headers}
-            ).execute()
-            log.info("Headers reinitialized")
+        def create_or_correct_sheet(sheet_title, expected_headers):
+            if sheet_title not in existing_sheets:
+                service.spreadsheets().batchUpdate(
+                    spreadsheetId=SHEET_ID,
+                    body={'requests': [{'addSheet': {'properties': {'title': sheet_title}}}]}
+                ).execute()
+                log.info(f"Created new sheet: {sheet_title}")
+                service.spreadsheets().values().update(
+                    spreadsheetId=SHEET_ID, range=f"'{sheet_title}'!A1",
+                    valueInputOption='RAW', body={'values': [expected_headers]}
+                ).execute()
+                log.info(f"Set headers for new sheet: {sheet_title}")
+            else:
+                headers_result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=f"'{sheet_title}'!A1:1").execute()
+                current_headers = headers_result.get('values', [[]])[0]
+                if current_headers != expected_headers:
+                    log.warning(f"{sheet_title} sheet has incorrect headers. Correcting them.")
+                    service.spreadsheets().values().update(
+                        spreadsheetId=SHEET_ID, range=f"'{sheet_title}'!A1",
+                        valueInputOption='RAW', body={'values': [expected_headers]}
+                    ).execute()
 
+        # Run verification for both sheets
+        create_or_correct_sheet('Expenses', expected_exp_headers)
+        create_or_correct_sheet('Pending', expected_pend_headers)
+
+        log.info("✨ Sheets verified and initialized successfully")
         return True
     except Exception as e:
-        log.error(f"Failed to verify sheet setup: {str(e)}")
+        log.error(f"❌ Failed to verify/initialize sheets: {str(e)}")
+        st.error(f"Critical error setting up Google Sheets: {e}")
         return False
 
 def show_success_message(transaction_date: datetime | str, subcategory: str | None) -> None:
@@ -904,12 +935,28 @@ def show_transaction_form():
         return
 
     if 'amount' in extracted_info and 'type' in extracted_info:
-        st.success("✅ Transaction Information Collected")
+        st.success("✅ All Transaction Information Collected!")
+
+        # --- START: MODIFICATION ---
+        # Gracefully handle cases where the AI hallucinates a category not in our predefined list.
+        categories = get_categories()
+        trans_type = extracted_info.get('type')
+        current_category = extracted_info.get('category')
+
+        if trans_type not in categories or current_category not in categories.get(trans_type, {}):
+            log.warning(f"AI-extracted category '{current_category}' not found for type '{trans_type}'. Defaulting to 'Other'.")
+            st.warning(f"The category '{current_category}' isn't standard. We've defaulted to 'Other', but please select a more appropriate one if available.")
+            extracted_info['category'] = 'Other'
+            st.session_state.current_transaction['category'] = 'Other' # Ensure session state is also updated
+        # --- END: MODIFICATION ---
 
         summary_col1, summary_col2 = st.columns(2)
         with summary_col1:
             st.write(f"**Type:** {extracted_info.get('type')}")
             st.write(f"**Amount:** Rs. {float(extracted_info.get('amount', 0)):,.2f}")
+            if extracted_info.get('type') == 'Expense':
+                 st.write(f"**Emotion:** {extracted_info.get('emotion_state', 'Neutral')}")
+
         with summary_col2:
             st.write(f"**Category:** {extracted_info.get('category')}")
             st.write(f"**Description:** {extracted_info.get('description', 'N/A')}")
@@ -936,7 +983,7 @@ def show_transaction_form():
                         key="due_date"
                     )
                 else:
-                    categories = get_categories()
+                    # This line is now safe because of the check above
                     subcategories = categories[extracted_info['type']][extracted_info['category']]
                     subcategory = st.selectbox(
                         "Select subcategory",
@@ -986,7 +1033,8 @@ def show_transaction_form():
                             extracted_info['type'],
                             extracted_info['category'],
                             subcategory,
-                            extracted_info.get('description', '')
+                            extracted_info.get('description', ''),
+                            extracted_info.get('emotion_state', 'Neutral')
                         )
 
                     if success:
@@ -1033,66 +1081,66 @@ def add_pending_transaction_to_sheet(date, amount, trans_type, category, descrip
         log.error(f"❌ Failed to save pending transaction: {str(e)}")
         return False
 
-def verify_sheets_setup():
-    """Verify both Expenses and Pending sheets exist with correct headers"""
-    try:
-        sheet_metadata = service.spreadsheets().get(spreadsheetId=SHEET_ID).execute()
-        sheets = sheet_metadata.get('sheets', '')
-        existing_sheets = {s.get("properties", {}).get("title") for s in sheets}
+# def verify_sheets_setup():
+#     """Verify both Expenses and Pending sheets exist with correct headers"""
+#     try:
+#         sheet_metadata = service.spreadsheets().get(spreadsheetId=SHEET_ID).execute()
+#         sheets = sheet_metadata.get('sheets', '')
+#         existing_sheets = {s.get("properties", {}).get("title") for s in sheets}
 
-        if 'Expenses' not in existing_sheets:
-            log.info("Creating new Expenses sheet...")
-            body = {
-                'requests': [{
-                    'addSheet': {
-                        'properties': {
-                            'title': 'Expenses'
-                        }
-                    }
-                }]
-            }
-            service.spreadsheets().batchUpdate(
-                spreadsheetId=SHEET_ID,
-                body=body
-            ).execute()
+#         if 'Expenses' not in existing_sheets:
+#             log.info("Creating new Expenses sheet...")
+#             body = {
+#                 'requests': [{
+#                     'addSheet': {
+#                         'properties': {
+#                             'title': 'Expenses'
+#                         }
+#                     }
+#                 }]
+#             }
+#             service.spreadsheets().batchUpdate(
+#                 spreadsheetId=SHEET_ID,
+#                 body=body
+#             ).execute()
 
-            headers = [['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description']]
-            service.spreadsheets().values().update(
-                spreadsheetId=SHEET_ID,
-                range='Expenses!A1:F1',
-                valueInputOption='RAW',
-                body={'values': headers}
-            ).execute()
+#             headers = [['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description']]
+#             service.spreadsheets().values().update(
+#                 spreadsheetId=SHEET_ID,
+#                 range='Expenses!A1:F1',
+#                 valueInputOption='RAW',
+#                 body={'values': headers}
+#             ).execute()
 
-        if 'Pending' not in existing_sheets:
-            log.info("Creating new Pending sheet...")
-            body = {
-                'requests': [{
-                    'addSheet': {
-                        'properties': {
-                            'title': 'Pending'
-                        }
-                    }
-                }]
-            }
-            service.spreadsheets().batchUpdate(
-                spreadsheetId=SHEET_ID,
-                body=body
-            ).execute()
+#         if 'Pending' not in existing_sheets:
+#             log.info("Creating new Pending sheet...")
+#             body = {
+#                 'requests': [{
+#                     'addSheet': {
+#                         'properties': {
+#                             'title': 'Pending'
+#                         }
+#                     }
+#                 }]
+#             }
+#             service.spreadsheets().batchUpdate(
+#                 spreadsheetId=SHEET_ID,
+#                 body=body
+#             ).execute()
 
-            headers = [['Date', 'Amount', 'Type', 'Category', 'Description', 'Due Date', 'Status']]
-            service.spreadsheets().values().update(
-                spreadsheetId=SHEET_ID,
-                range='Pending!A1:G1',
-                valueInputOption='RAW',
-                body={'values': headers}
-            ).execute()
+#             headers = [['Date', 'Amount', 'Type', 'Category', 'Description', 'Due Date', 'Status']]
+#             service.spreadsheets().values().update(
+#                 spreadsheetId=SHEET_ID,
+#                 range='Pending!A1:G1',
+#                 valueInputOption='RAW',
+#                 body={'values': headers}
+#             ).execute()
 
-        log.info("✨ Sheets verified and initialized")
-        return True
-    except Exception as e:
-        log.error(f"❌ Failed to verify/initialize sheets: {str(e)}")
-        return False
+#         log.info("✨ Sheets verified and initialized")
+#         return True
+#     except Exception as e:
+#         log.error(f"❌ Failed to verify/initialize sheets: {str(e)}")
+#         return False
 
 def main():
     """

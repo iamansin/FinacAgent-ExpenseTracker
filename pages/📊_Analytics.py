@@ -44,16 +44,16 @@ def get_transactions_data():
         log.debug("Fetching transactions data from Google Sheets")
         result = service.spreadsheets().values().get(
             spreadsheetId=SHEET_ID,
-            range='Expenses!A1:F'
+            range='Expenses!A1:G'  # Changed from A1:F to A1:G to include emotion_state
         ).execute()
         
         values = result.get('values', [])
         if not values:
             log.warning("No transaction data found in sheet")
-            return pd.DataFrame(columns=['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description'])
+            return pd.DataFrame(columns=['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description', 'emotion_state'])
         
         log.info(f" Retrieved {len(values)-1} transaction records")
-        return pd.DataFrame(values[1:], columns=['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description'])
+        return pd.DataFrame(values[1:], columns=['Date', 'Amount', 'Type', 'Category', 'Subcategory', 'Description', 'emotion_state'])
     except Exception as e:
         log.error(f"❌ Failed to fetch transactions data: {str(e)}")
         raise
@@ -386,6 +386,193 @@ def show_income_analytics(df, start_date, end_date):
         }) # type: ignore
     )
 
+def show_emotion_analytics(df, start_date, end_date):
+    """Display emotional spending analytics"""
+    st.subheader("🎭 Emotional Spending Analytics")
+    
+    # Filter only expenses
+    expense_df = df[df['Type'] == 'Expense'].copy()
+    
+    if expense_df.empty:
+        st.info("No expense transactions found for the selected period.")
+        return
+    
+    # Check if emotion_state column exists and has data
+    if 'emotion_state' not in expense_df.columns:
+        st.warning("No emotional data available. Emotion tracking was recently added.")
+        return
+    
+    # Replace empty/null values with 'Missed Emotion' instead of 'Neutral'
+    expense_df['emotion_state'] = expense_df['emotion_state'].fillna('Missed Emotion')
+    expense_df['emotion_state'] = expense_df['emotion_state'].replace('', 'Missed Emotion')
+    expense_df['emotion_state'] = expense_df['emotion_state'].str.strip()  # Remove any extra spaces
+    
+    # Filter data by date
+    expense_df = filter_dataframe(expense_df, start_date, end_date)
+    
+    if expense_df.empty:
+        st.info("No expense transactions found for the selected period.")
+        return
+    
+    # Color mapping for emotions
+    emotion_colors = {
+        'Coping / Stress Spending': '#FF6B6B',  # Red
+        'Routine / Neutral Spending': '#4ECDC4',  # Teal
+        'Impulse / Boredom Spending': '#FFE66D',  # Yellow
+        'Social Comparison Spending': '#A8E6CF',  # Light Green
+        'Aspirational / Identity Spending': '#95E1D3',  # Mint
+        'Missed Emotion': '#B0B0B0'  # Gray for missed emotions
+    }
+    
+    # Check if all emotions are 'Missed Emotion'
+    if (expense_df['emotion_state'] == 'Missed Emotion').all():
+        st.warning("No emotional data available for this period. Emotion tracking was recently added.")
+        return
+    
+    # Overall emotion distribution
+    st.subheader("💰 Total Spending by Emotion")
+    emotion_totals = expense_df.groupby('emotion_state')['Amount'].sum().sort_values(ascending=False)
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        fig_emotion_pie = px.pie(
+            values=emotion_totals.values,
+            names=emotion_totals.index,
+            title='Spending Distribution by Emotional State',
+            color=emotion_totals.index,
+            color_discrete_map=emotion_colors
+        )
+        fig_emotion_pie.update_traces(textposition='inside', textinfo='percent+label')
+        st.plotly_chart(fig_emotion_pie, use_container_width=True)
+    
+    with col2:
+        st.write("### Summary")
+        for emotion, amount in emotion_totals.items():
+            percentage = (amount / emotion_totals.sum()) * 100
+            st.metric(
+                emotion.split('/')[0].strip(),
+                f"Rs. {amount:,.2f}",
+                f"{percentage:.1f}%"
+            )
+    
+    st.divider()
+    
+    # Monthly trend by emotion
+    st.subheader("📊 Monthly Emotional Spending Trends")
+    monthly_emotion = expense_df.groupby([
+        expense_df['Date'].dt.strftime('%Y-%m'),
+        'emotion_state'
+    ])['Amount'].sum().reset_index()
+    
+    fig_monthly_emotion = px.bar(
+        monthly_emotion,
+        x='Date',
+        y='Amount',
+        color='emotion_state',
+        title='Monthly Spending by Emotion',
+        labels={'Amount': 'Amount (Rs.)', 'Date': 'Month'},
+        color_discrete_map=emotion_colors,
+        barmode='stack'
+    )
+    st.plotly_chart(fig_monthly_emotion, use_container_width=True)
+    
+    st.divider()
+    
+    # Category breakdown by emotion
+    st.subheader("🏷️ Categories by Emotional State")
+    
+    category_emotion = expense_df.groupby(['Category', 'emotion_state'])['Amount'].sum().reset_index()
+    
+    fig_category_emotion = px.bar(
+        category_emotion,
+        x='Category',
+        y='Amount',
+        color='emotion_state',
+        title='Spending Categories by Emotional State',
+        labels={'Amount': 'Amount (Rs.)'},
+        color_discrete_map=emotion_colors,
+        barmode='group'
+    )
+    fig_category_emotion.update_layout(xaxis_tickangle=-45)
+    st.plotly_chart(fig_category_emotion, use_container_width=True)
+    
+    st.divider()
+    
+    # Insights section
+    st.subheader("💡 Emotional Spending Insights")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # Most common emotion (excluding Missed Emotion)
+        emotions_without_missed = expense_df[expense_df['emotion_state'] != 'Missed Emotion']
+        if not emotions_without_missed.empty:
+            most_common_emotion = emotions_without_missed['emotion_state'].mode()[0]
+            most_common_count = len(emotions_without_missed[emotions_without_missed['emotion_state'] == most_common_emotion])
+            st.metric(
+                "Most Common Emotion",
+                most_common_emotion.split('/')[0].strip(),
+                f"{most_common_count} transactions"
+            )
+        else:
+            st.metric("Most Common Emotion", "N/A", "No data")
+    
+    with col2:
+        # Highest spending emotion
+        highest_spending_emotion = emotion_totals.idxmax()
+        highest_amount = emotion_totals.max()
+        st.metric(
+            "Highest Spending Emotion",
+            highest_spending_emotion.split('/')[0].strip(),
+            f"Rs. {highest_amount:,.2f}"
+        )
+    
+    with col3:
+        # Average transaction by emotion
+        avg_per_emotion = expense_df.groupby('emotion_state')['Amount'].mean()
+        highest_avg_emotion = avg_per_emotion.idxmax()
+        highest_avg = avg_per_emotion.max()
+        st.metric(
+            "Highest Avg Transaction",
+            highest_avg_emotion.split('/')[0].strip(),
+            f"Rs. {highest_avg:,.2f}"
+        )
+    
+    st.divider()
+    
+    # Detailed breakdown table
+    st.subheader("📋 Detailed Emotion Breakdown")
+    
+    emotion_details = expense_df.groupby('emotion_state').agg({
+        'Amount': ['sum', 'mean', 'count']
+    }).round(2)
+    
+    emotion_details.columns = ['Total Spent', 'Average Transaction', 'Number of Transactions']
+    emotion_details = emotion_details.sort_values('Total Spent', ascending=False)
+    
+    st.dataframe(
+        emotion_details.style.format({
+            'Total Spent': 'Rs. {:,.2f}',
+            'Average Transaction': 'Rs. {:,.2f}',
+            'Number of Transactions': '{:.0f}'
+        }),
+        use_container_width=True
+    )
+    
+    # Recent emotional transactions
+    st.subheader("🕐 Recent Emotional Transactions")
+    recent_emotion = expense_df.sort_values('Date', ascending=False).head(10)
+    st.dataframe(
+        recent_emotion[['Date', 'Amount', 'Category', 'Description', 'emotion_state']].style.format({
+            'Amount': 'Rs. {:,.2f}',
+            'Date': lambda x: x.strftime('%Y-%m-%d')
+        }),
+        hide_index=True,
+        use_container_width=True
+    )
+
+    
 def show_expense_analytics(df, start_date, end_date):
     st.subheader("💸 Expense Analytics")
     expense_df = df[df['Type'] == 'Expense'].copy()
@@ -575,7 +762,7 @@ def show_analytics():
         st.caption(f"Showing data from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
         
         # Show tabs for different sections
-        tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Income Analytics", "Expense Analytics", "Pending Transactions"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Income Analytics", "Expense Analytics", "Emotion Analytics", "Pending Transactions"])
         
         with tab1:
             show_overview_analytics(filtered_df, start_date, end_date)
@@ -584,6 +771,8 @@ def show_analytics():
         with tab3:
             show_expense_analytics(filtered_df, start_date, end_date)
         with tab4:
+            show_emotion_analytics(filtered_df, start_date, end_date)
+        with tab5:
             show_pending_transactions()
         
         log.info("📊 Analytics visualizations generated successfully")
